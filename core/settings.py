@@ -22,6 +22,10 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
 # Application definition
 
+PROJECT_FILES = [
+    'account'
+]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -31,6 +35,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework"
 ]
+
+INSTALLED_APPS += PROJECT_FILES
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
