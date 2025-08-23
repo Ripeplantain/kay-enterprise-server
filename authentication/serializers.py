@@ -122,7 +122,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender',
             'region', 'city_town', 'area_suburb',
             'is_verified', 'phone_verified_at',
-            'date_joined', 'profile_picture'
+            'date_joined'
         ]
         read_only_fields = ('id', 'date_joined', 'phone_verified_at')
 
@@ -137,5 +137,4 @@ class ClientUpdateSerializer(serializers.ModelSerializer):
             'area_suburb',
             'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship',
             'sms_notifications', 'email_notifications', 'whatsapp_notifications',
-            'profile_picture'
         ]
