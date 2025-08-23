@@ -1,3 +1,4 @@
+from datetime import datetime
 from rest_framework import serializers
 from .models import LuggageType, Luggage, LuggageTracking
 from booking.models import Booking
