@@ -4,9 +4,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
-from django.db import models
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime
+
+from bus_management.models import Bus
 from .models import Route, Trip, Booking
 from .serializers import (
     RouteListSerializer, RouteDetailSerializer, RouteCreateUpdateSerializer,

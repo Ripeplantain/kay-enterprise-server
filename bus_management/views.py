@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
+from django.db import models
 
-from authentication import models
 from .models import Bus, BusTerminal
 from .serializers import (
     BusListSerializer, BusDetailSerializer, BusCreateUpdateSerializer,

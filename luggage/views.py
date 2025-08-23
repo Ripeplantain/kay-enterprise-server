@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
+from django.db import models
+
 from .models import LuggageType, Luggage, LuggageTracking
 from .serializers import (
     LuggageTypeSerializer, LuggageListSerializer, LuggageDetailSerializer,
@@ -39,7 +41,7 @@ class LuggageTypeViewSet(viewsets.ModelViewSet):
 class LuggageFilter(django_filters.FilterSet):
     """Filter for luggage"""
     booking = django_filters.ModelChoiceFilter(
-        queryset=Booking.objects.all()
+        queryset=models.Booking.objects.all()
     )
     booking_reference = django_filters.CharFilter(
         field_name='booking__booking_reference',
