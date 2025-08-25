@@ -15,8 +15,8 @@ from .serializers import (
 class BusTerminalFilter(django_filters.FilterSet):
     """Filter for bus terminals"""
     city = django_filters.CharFilter(field_name='city_town', lookup_expr='icontains')
-    region = django_filters.ChoiceFilter(choices=BusTerminal.GHANA_REGIONS)
-    terminal_type = django_filters.ChoiceFilter(choices=BusTerminal.TERMINAL_TYPES)
+    region = django_filters.ChoiceFilter(choices=BusTerminal.region)
+    terminal_type = django_filters.ChoiceFilter(choices=BusTerminal.terminal_type)
     has_facilities = django_filters.BooleanFilter(method='filter_has_facilities')
     
     class Meta:
@@ -44,7 +44,7 @@ class BusTerminalViewSet(viewsets.ModelViewSet):
     queryset = BusTerminal.objects.all()
     serializer_class = BusTerminalSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = BusTerminalFilter
     search_fields = ['name', 'city_town', 'area_suburb']
     ordering_fields = ['name', 'city_town', 'region', 'created_at']
@@ -83,8 +83,8 @@ class BusTerminalViewSet(viewsets.ModelViewSet):
 
 class BusFilter(django_filters.FilterSet):
     """Filter for buses"""
-    bus_type = django_filters.ChoiceFilter(choices=Bus.BUS_TYPES)
-    status = django_filters.ChoiceFilter(choices=Bus.BUS_STATUS)
+    bus_type = django_filters.ChoiceFilter(choices=Bus.bus_type)
+    status = django_filters.ChoiceFilter(choices=Bus.status)
     has_ac = django_filters.BooleanFilter()
     has_wifi = django_filters.BooleanFilter()
     min_seats = django_filters.NumberFilter(field_name='total_seats', lookup_expr='gte')
@@ -109,7 +109,7 @@ class BusViewSet(viewsets.ModelViewSet):
     """
     queryset = Bus.objects.filter(status__in=['active', 'maintenance'])
     permission_classes = [IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = BusFilter
     search_fields = ['name', 'bus_number', 'registration_number', 'make_model']
     ordering_fields = ['name', 'bus_type', 'total_seats', 'year_manufactured', 'created_at']

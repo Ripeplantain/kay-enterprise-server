@@ -49,7 +49,7 @@ class RouteViewSet(viewsets.ModelViewSet):
     """
     queryset = Route.objects.filter(is_active=True)
     permission_classes = [IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = RouteFilter
     search_fields = ['name', 'origin_terminal__city_town', 'destination_terminal__city_town']
     ordering_fields = ['name', 'distance_km', 'estimated_duration_hours', 'fare', 'created_at']
@@ -126,7 +126,7 @@ class TripViewSet(viewsets.ModelViewSet):
     """
     queryset = Trip.objects.all()
     permission_classes = [IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = TripFilter
     search_fields = ['trip_number', 'route__name', 'bus__name']
     ordering_fields = ['scheduled_departure', 'scheduled_arrival', 'fare', 'available_seats']
@@ -188,9 +188,8 @@ class BookingFilter(django_filters.FilterSet):
     )
     status = django_filters.ChoiceFilter(
         field_name='booking_status',
-        choices=Booking.BOOKING_STATUS
+        choices=Booking.booking_status
     )
-    payment_status = django_filters.ChoiceFilter(choices=Booking.PAYMENT_STATUS)
     departure_date = django_filters.DateFilter(field_name='trip__scheduled_departure__date')
     departure_date_from = django_filters.DateFilter(
         field_name='trip__scheduled_departure__date', 
@@ -218,7 +217,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     - bus, route, status, payment_status, departure_date, passenger_name
     """
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = BookingFilter
     search_fields = ['booking_reference', 'passenger_name', 'passenger_phone']
     ordering_fields = ['booking_date', 'trip__scheduled_departure', 'total_amount']

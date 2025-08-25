@@ -6,6 +6,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
 from django.db import models
 
+from booking.models import Booking
+
 from .models import LuggageType, Luggage, LuggageTracking
 from .serializers import (
     LuggageTypeSerializer, LuggageListSerializer, LuggageDetailSerializer,
@@ -24,7 +26,7 @@ class LuggageTypeViewSet(viewsets.ModelViewSet):
     queryset = LuggageType.objects.filter(is_active=True)
     serializer_class = LuggageTypeSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchBackend, filters.OrderingFilter]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'base_price', 'max_weight_kg']
     ordering = ['base_price']
@@ -41,13 +43,12 @@ class LuggageTypeViewSet(viewsets.ModelViewSet):
 class LuggageFilter(django_filters.FilterSet):
     """Filter for luggage"""
     booking = django_filters.ModelChoiceFilter(
-        queryset=models.Booking.objects.all()
+        queryset=Booking.objects.all()
     )
     booking_reference = django_filters.CharFilter(
         field_name='booking__booking_reference',
         lookup_expr='icontains'
     )
-    status = django_filters.ChoiceFilter(choices=Luggage.LUGGAGE_STATUS)
     luggage_type = django_filters.ModelChoiceFilter(queryset=LuggageType.objects.all())
     is_fragile = django_filters.BooleanFilter()
     is_valuable = django_filters.BooleanFilter()
@@ -59,7 +60,7 @@ class LuggageFilter(django_filters.FilterSet):
     
     class Meta:
         model = Luggage
-        fields = ['status', 'is_fragile', 'is_valuable', 'luggage_type']
+        fields = ['is_fragile', 'is_valuable', 'luggage_type']
 
 class LuggageViewSet(viewsets.ModelViewSet):
     """
@@ -73,7 +74,7 @@ class LuggageViewSet(viewsets.ModelViewSet):
     - booking, status, type, fragile, valuable, weight, dates
     """
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = LuggageFilter
     search_fields = [
         'luggage_tag', 'description', 'booking__booking_reference',
