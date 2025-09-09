@@ -7,10 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('authentication.urls')),
     path('api/booking/', include('booking.urls')),
-    path('api/luggage/', include('luggage.urls')),
-    path('api/bus/', include('bus_management.urls')),
-    path('api/payment/', include('payments.urls')),
-    
+    path('api/agents/', include('agents.urls')),
 ]
 
 

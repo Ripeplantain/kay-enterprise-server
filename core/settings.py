@@ -23,7 +23,7 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 
 # Application definition
 
-PROJECT_FILES = ["authentication", "booking", "bus_management", "payments", "luggage"]
+PROJECT_FILES = ["authentication", "booking", "agents"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

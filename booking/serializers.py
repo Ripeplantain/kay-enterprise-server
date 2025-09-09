@@ -1,247 +1,236 @@
+import json
 from rest_framework import serializers
-from .models import Route, Trip, Booking
-from bus_management.models import Bus, BusTerminal
-from bus_management.serializers import BusListSerializer, BusTerminalSerializer
-from authentication.models import Client
-from datetime import datetime, timedelta
-from decimal import Decimal
-import uuid
+from .models import Route, Bus, Seat, Trip, LuggageType, Booking, BookingLuggage
 
-class RouteListSerializer(serializers.ModelSerializer):
-    """Serializer for route listings"""
-    origin_city = serializers.CharField(source='origin_terminal.city_town', read_only=True)
-    destination_city = serializers.CharField(source='destination_terminal.city_town', read_only=True)
-    duration_display = serializers.SerializerMethodField()
-    
+
+class RouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Route
-        fields = [
-            'id', 'name', 'origin_city', 'destination_city',
-            'distance_km', 'estimated_duration_hours', 'duration_display',
-            'fare', 'is_active'
-        ]
+        fields = '__all__'
 
-    def get_duration_display(self, obj):
-        """Human-readable duration"""
-        hours = int(obj.estimated_duration_hours)
-        minutes = int((obj.estimated_duration_hours - hours) * 60)
-        return f"{hours}h {minutes}m" if minutes > 0 else f"{hours}h"
 
-class RouteDetailSerializer(serializers.ModelSerializer):
-    """Detailed route information"""
-    origin_terminal = BusTerminalSerializer(read_only=True)
-    destination_terminal = BusTerminalSerializer(read_only=True)
-    duration_display = serializers.SerializerMethodField()
+class SeatSerializer(serializers.ModelSerializer):
+    is_booked = serializers.SerializerMethodField()
     
     class Meta:
-        model = Route
-        fields = [
-            'id', 'name', 'origin_terminal', 'destination_terminal',
-            'distance_km', 'estimated_duration_hours', 'duration_display',
-            'fare', 'is_active', 'created_at'
-        ]
-        read_only_fields = ('id', 'created_at', 'duration_display')
+        model = Seat
+        fields = ['id', 'seat_number', 'seat_type', 'is_available', 'is_booked']
+    
+    def get_is_booked(self, obj):
+        trip_id = self.context.get('trip_id')
+        if trip_id:
+            return Booking.objects.filter(
+                trip_id=trip_id,
+                seat=obj,
+                status__in=['confirmed', 'pending']
+            ).exists()
+        return False
 
-    def get_duration_display(self, obj):
-        hours = int(obj.estimated_duration_hours)
-        minutes = int((obj.estimated_duration_hours - hours) * 60)
-        return f"{hours}h {minutes}m" if minutes > 0 else f"{hours}h"
 
-class RouteCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating/updating routes"""
+class BusSerializer(serializers.ModelSerializer):
+    seats = serializers.SerializerMethodField()
     
     class Meta:
-        model = Route
-        fields = [
-            'name', 'origin_terminal', 'destination_terminal',
-            'distance_km', 'estimated_duration_hours', 'fare'
-        ]
+        model = Bus
+        fields = ['id', 'plate_number', 'bus_type', 'total_seats', 'seats']
+    
+    def get_seats(self, obj):
+        trip_id = self.context.get('trip_id')
+        return SeatSerializer(
+            obj.seats.all(),
+            many=True,
+            context={'trip_id': trip_id}
+        ).data
 
-    def validate(self, attrs):
-        """Validate route data"""
-        if attrs.get('origin_terminal') == attrs.get('destination_terminal'):
-            raise serializers.ValidationError("Origin and destination cannot be the same")
-        
-        if attrs.get('distance_km', 0) <= 0:
-            raise serializers.ValidationError("Distance must be greater than 0")
-        
-        if attrs.get('estimated_duration_hours', 0) <= 0:
-            raise serializers.ValidationError("Duration must be greater than 0")
-        
-        if attrs.get('fare', 0) <= 0:
-            raise serializers.ValidationError("Fare must be greater than 0")
-        
-        return attrs
+
+class TripSerializer(serializers.ModelSerializer):
+    route = RouteSerializer(read_only=True)
+    bus = BusSerializer(read_only=True)
+    
+    class Meta:
+        model = Trip
+        fields = '__all__'
+
 
 class TripListSerializer(serializers.ModelSerializer):
-    """Serializer for trip listings"""
-    bus_name = serializers.CharField(source='bus.name', read_only=True)
-    bus_type = serializers.CharField(source='bus.bus_type', read_only=True)
     route_name = serializers.CharField(source='route.name', read_only=True)
-    origin_city = serializers.CharField(source='route.origin_terminal.city_town', read_only=True)
-    destination_city = serializers.CharField(source='route.destination_terminal.city_town', read_only=True)
-    departure_date = serializers.SerializerMethodField()
-    departure_time = serializers.SerializerMethodField()
-    arrival_time = serializers.SerializerMethodField()
+    origin = serializers.CharField(source='route.origin', read_only=True)
+    destination = serializers.CharField(source='route.destination', read_only=True)
+    bus_plate = serializers.CharField(source='bus.plate_number', read_only=True)
+    bus_type = serializers.CharField(source='bus.bus_type', read_only=True)
     
     class Meta:
         model = Trip
         fields = [
-            'id', 'trip_number', 'bus_name', 'bus_type', 'route_name',
-            'origin_city', 'destination_city', 'departure_date', 'departure_time',
-            'arrival_time', 'available_seats', 'fare', 'status'
+            'id', 'route_name', 'origin', 'destination', 'bus_plate', 'bus_type',
+            'departure_datetime', 'arrival_datetime', 'price_per_seat',
+            'available_seats', 'status', 'pickup_points', 'drop_points'
         ]
 
-    def get_departure_date(self, obj):
-        return obj.scheduled_departure.strftime('%Y-%m-%d')
-    
-    def get_departure_time(self, obj):
-        return obj.scheduled_departure.strftime('%H:%M')
-    
-    def get_arrival_time(self, obj):
-        return obj.scheduled_arrival.strftime('%H:%M')
 
-class TripDetailSerializer(serializers.ModelSerializer):
-    """Detailed trip information"""
-    bus = BusListSerializer(read_only=True)
-    route = RouteDetailSerializer(read_only=True)
-    driver_name = serializers.CharField(source='driver.get_full_name', read_only=True)
-    conductor_name = serializers.CharField(source='conductor.get_full_name', read_only=True)
-    
+class LuggageTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Trip
-        fields = [
-            'id', 'trip_number', 'bus', 'route', 'driver_name', 'conductor_name',
-            'scheduled_departure', 'scheduled_arrival', 'actual_departure',
-            'actual_arrival', 'total_seats', 'available_seats', 'fare',
-            'status', 'notes', 'created_at'
-        ]
-        read_only_fields = ('id', 'created_at')
+        model = LuggageType
+        fields = '__all__'
 
-class BookingListSerializer(serializers.ModelSerializer):
-    """Serializer for booking listings"""
-    trip_details = serializers.SerializerMethodField()
-    route_name = serializers.CharField(source='trip.route.name', read_only=True)
-    departure_date = serializers.DateTimeField(source='trip.scheduled_departure', read_only=True)
+
+class BookingLuggageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingLuggage
+        fields = [
+            'id', 'has_luggage', 'luggage_count', 'special_items',
+            'luggage_handling_fee', 'cargo_van_fee', 'special_items_fee',
+            'total_luggage_fee', 'luggage_notes'
+        ]
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    luggage_items = BookingLuggageSerializer(many=True, required=False)
+    trip_details = TripListSerializer(source='trip', read_only=True)
+    seat_number = serializers.CharField(source='seat.seat_number', read_only=True)
     
     class Meta:
         model = Booking
         fields = [
-            'id', 'booking_reference', 'trip_details', 'route_name',
-            'passenger_name', 'seat_numbers', 'number_of_seats',
-            'total_amount', 'booking_status', 'payment_status',
-            'departure_date', 'booking_date'
+            'id', 'booking_reference', 'trip', 'trip_details', 'seat', 'seat_number',
+            'pickup_point_id', 'drop_point_id', 'passenger_information', 'total_amount', 'status',
+            'luggage_items', 'created_at', 'updated_at'
         ]
-
-    def get_trip_details(self, obj):
-        return f"{obj.trip.trip_number} - {obj.trip.bus.name}"
-
-class BookingDetailSerializer(serializers.ModelSerializer):
-    """Detailed booking information"""
-    client_name = serializers.CharField(source='client.full_name', read_only=True)
-    client_phone = serializers.CharField(source='client.phone_number', read_only=True)
-    trip = TripDetailSerializer(read_only=True)
+        read_only_fields = ['booking_reference', 'created_at', 'updated_at']
     
-    class Meta:
-        model = Booking
-        fields = [
-            'id', 'booking_reference', 'client_name', 'client_phone', 'trip',
-            'passenger_name', 'passenger_phone', 'seat_numbers', 'number_of_seats',
-            'fare_per_seat', 'total_fare', 'booking_fee', 'total_amount',
-            'booking_status', 'payment_status', 'booking_date', 'payment_deadline',
-            'check_in_time', 'special_requests', 'notes', 'created_at'
-        ]
-        read_only_fields = ('id', 'booking_reference', 'created_at')
-
-class BookingCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating bookings"""
-    
-    class Meta:
-        model = Booking
-        fields = [
-            'trip', 'passenger_name', 'passenger_phone', 'seat_numbers',
-            'number_of_seats', 'special_requests'
-        ]
-
-    def validate_passenger_phone(self, value):
-        """Validate passenger phone number"""
-        if not value.startswith(('+233', '0')):
-            raise serializers.ValidationError("Enter a valid Ghanaian phone number")
-        return value
-
-    def validate_seat_numbers(self, value):
-        """Validate seat numbers format"""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Seat numbers are required")
-        
-        # Basic validation for seat format (e.g., "A1,A2" or "1,2,3")
-        seats = [seat.strip() for seat in value.split(',')]
-        if len(seats) == 0:
-            raise serializers.ValidationError("At least one seat must be selected")
-        
-        return value
-
-    def validate(self, attrs):
-        """Validate booking data"""
-        trip = attrs.get('trip')
-        number_of_seats = attrs.get('number_of_seats', 1)
-        seat_numbers = attrs.get('seat_numbers', '')
-        
-        # Check if trip exists and is bookable
-        if not trip:
-            raise serializers.ValidationError("Trip is required")
-        
-        if trip.status not in ['scheduled', 'boarding']:
-            raise serializers.ValidationError("This trip is not available for booking")
-        
-        # Check seat availability
-        if trip.available_seats < number_of_seats:
-            raise serializers.ValidationError(
-                f"Only {trip.available_seats} seats available on this trip"
-            )
-        
-        # Validate seat count matches seat numbers
-        seats_list = [seat.strip() for seat in seat_numbers.split(',') if seat.strip()]
-        if len(seats_list) != number_of_seats:
-            raise serializers.ValidationError(
-                "Number of seats must match the count of seat numbers provided"
-            )
-        
-        return attrs
-
     def create(self, validated_data):
-        """Create booking with automatic calculations"""
-        trip = validated_data['trip']
-        number_of_seats = validated_data['number_of_seats']
+        luggage_items_data = validated_data.pop('luggage_items', [])
         
         # Generate booking reference
-        booking_reference = f"KB{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:6].upper()}"
+        import uuid
+        booking_reference = f"BK{uuid.uuid4().hex[:8].upper()}"
+        validated_data['booking_reference'] = booking_reference
         
-        # Calculate pricing
-        fare_per_seat = trip.fare
-        total_fare = fare_per_seat * number_of_seats
-        booking_fee = Decimal('2.00')
-        total_amount = total_fare + booking_fee
+        # Add client from request context
+        user = self.context['request'].user
+        if hasattr(user, 'phone_number'):  # This is a Client object
+            validated_data['client'] = user
+        else:  # This is a Django User object
+            validated_data['client'] = user.client
         
-        # Create booking
-        booking = Booking.objects.create(
-            booking_reference=booking_reference,
-            client=self.context['request'].user,
-            trip=trip,
-            passenger_name=validated_data['passenger_name'],
-            passenger_phone=validated_data['passenger_phone'],
-            seat_numbers=validated_data['seat_numbers'],
-            number_of_seats=number_of_seats,
-            fare_per_seat=fare_per_seat,
-            total_fare=total_fare,
-            booking_fee=booking_fee,
-            total_amount=total_amount,
-            special_requests=validated_data.get('special_requests', ''),
-            payment_deadline=datetime.now() + timedelta(hours=2)
-        )
+        booking = Booking.objects.create(**validated_data)
         
-        # Update available seats
-        trip.available_seats -= number_of_seats
-        trip.save()
+        # Create luggage items
+        for luggage_data in luggage_items_data:
+            BookingLuggage.objects.create(booking=booking, **luggage_data)
+        
+        # Update seat availability and trip available seats
+        seat = validated_data['seat']
+        trip = validated_data['trip']
+        
+        # Mark seat as unavailable for this trip (we'll handle this in views)
+        if trip.available_seats > 0:
+            trip.available_seats -= 1
+            trip.save()
         
         return booking
+
+
+class CreateBookingSerializer(serializers.Serializer):
+    trip_id = serializers.IntegerField()
+    seat_ids = serializers.ListField(child=serializers.IntegerField())  # Multiple seats
+    pickup_point_id = serializers.CharField()
+    drop_off_point_id = serializers.CharField()
+    bus_id = serializers.IntegerField()
+    passenger_info = serializers.JSONField()  # Store passenger information as JSON
+    luggage_info = serializers.JSONField(required=False)  # Store luggage information as JSON
+    
+    def validate(self, data):
+        # Validate trip exists and is available
+        try:
+            trip = Trip.objects.get(id=data['trip_id'], status='scheduled')
+        except Trip.DoesNotExist:
+            raise serializers.ValidationError("Trip not found or not available")
+        
+        # Validate bus matches trip
+        if trip.bus.id != data['bus_id']:
+            raise serializers.ValidationError("Bus does not match the trip")
+        
+        # Validate all seats exist and are available for this trip
+        seats = []
+        for seat_id in data['seat_ids']:
+            try:
+                seat = Seat.objects.get(id=seat_id, bus=trip.bus)
+            except Seat.DoesNotExist:
+                raise serializers.ValidationError(f"Seat {seat_id} not found or not available for this trip")
+            
+            # Check if seat is already booked for this trip
+            if Booking.objects.filter(
+                trip=trip,
+                seat=seat,
+                status__in=['confirmed', 'pending']
+            ).exists():
+                raise serializers.ValidationError(f"Seat {seat_id} is already booked for this trip")
+            
+            seats.append(seat)
+        
+        data['trip'] = trip
+        data['seats'] = seats
+        
+        return data
+    
+    def create(self, validated_data):
+        trip = validated_data.pop('trip')
+        seats = validated_data.pop('seats')
+        luggage_info = validated_data.pop('luggage_info', {})
+        passenger_info = validated_data.pop('passenger_info', {})
+        
+        # Get client from request
+        user = self.context['request'].user
+        if hasattr(user, 'phone_number'):  # This is a Client object
+            client = user
+        else:  # This is a Django User object
+            client = user.client
+        
+        bookings = []
+        
+        # Create a booking for each seat
+        for seat in seats:
+            # Calculate total amount per seat
+            seat_cost = trip.price_per_seat
+            luggage_cost = luggage_info.get('total_luggage_fee', 0)
+            total_amount = seat_cost + luggage_cost
+            
+            # Generate booking reference
+            import uuid
+            booking_reference = f"BK{uuid.uuid4().hex[:8].upper()}"
+            
+            booking = Booking.objects.create(
+                booking_reference=booking_reference,
+                client=client,
+                trip=trip,
+                seat=seat,
+                pickup_point_id=validated_data['pickup_point_id'],
+                drop_point_id=validated_data['drop_off_point_id'],
+                passenger_information=json.dumps(passenger_info),
+                total_amount=total_amount,
+                status='confirmed'
+            )
+            
+            # Create luggage info if provided
+            if luggage_info:
+                BookingLuggage.objects.create(
+                    booking=booking,
+                    has_luggage=luggage_info.get('has_luggage', False),
+                    luggage_count=luggage_info.get('luggage_count', 0),
+                    special_items=luggage_info.get('special_items', []),
+                    luggage_handling_fee=luggage_info.get('luggage_handling_fee', 0),
+                    cargo_van_fee=luggage_info.get('cargo_van_fee', 0),
+                    special_items_fee=luggage_info.get('special_items_fee', 0),
+                    total_luggage_fee=luggage_info.get('total_luggage_fee', 0)
+                )
+            
+            bookings.append(booking)
+        
+        # Update trip available seats
+        seats_count = len(seats)
+        if trip.available_seats >= seats_count:
+            trip.available_seats -= seats_count
+            trip.save()
+        
+        return bookings

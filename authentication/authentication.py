@@ -32,7 +32,6 @@ class ClientJWTAuthentication(JWTAuthentication):
             
             if user_type == 'client' and client_id:
                 client = Client.objects.get(id=client_id, is_active=True)
-                client.is_authenticated = True
                 return client
             elif user_type == 'admin':
                 user_id = validated_token.get('user_id')
@@ -51,3 +50,21 @@ class ClientPermission(BasePermission):
             hasattr(request.user, 'phone_number') and
             request.user.is_active
         )
+
+
+class ClientOrAdminPermission(BasePermission):
+    """Custom permission class that allows both clients and admins"""
+    
+    def has_permission(self, request, view):
+        if not request.user:
+            return False
+        
+        # Check if it's an authenticated admin (Django User)
+        if hasattr(request.user, 'is_staff') and request.user.is_authenticated:
+            return True
+        
+        # Check if it's an authenticated client
+        if hasattr(request.user, 'phone_number') and hasattr(request.user, 'is_active'):
+            return request.user.is_active
+        
+        return False

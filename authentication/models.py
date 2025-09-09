@@ -12,6 +12,7 @@ class Client(models.Model):
 
     # Basic Information
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     phone_number = models.CharField(
         max_length=15, 
         unique=True,
@@ -84,3 +85,13 @@ class Client(models.Model):
         if len(self.phone_number) >= 10:
             return f"{self.phone_number[:4]}****{self.phone_number[-3:]}"
         return self.phone_number
+
+    @property
+    def is_authenticated(self):
+        """Always return True for active clients to work with Django auth"""
+        return self.is_active
+
+    @property
+    def is_anonymous(self):
+        """Always return False for client objects"""
+        return False
