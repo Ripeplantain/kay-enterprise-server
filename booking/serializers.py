@@ -28,11 +28,12 @@ class SeatSerializer(serializers.ModelSerializer):
 
 
 class BusSerializer(serializers.ModelSerializer):
+    bus_id = serializers.IntegerField(source='id', read_only=True)
     seats = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Bus
-        fields = ['id', 'plate_number', 'bus_type', 'total_seats', 'seats']
+        fields = ['id', 'bus_id', 'plate_number', 'bus_type', 'total_seats', 'seats']
     
     def get_seats(self, obj):
         trip_id = self.context.get('trip_id')
@@ -93,7 +94,7 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = [
             'id', 'booking_reference', 'trip', 'trip_details', 'seat', 'seat_number',
-            'pickup_point_id', 'drop_point_id', 'passenger_information', 'total_amount', 'status',
+            'pickup_point_id', 'drop_point_id', 'total_amount', 'status',
             'luggage_items', 'created_at', 'updated_at'
         ]
         read_only_fields = ['booking_reference', 'created_at', 'updated_at']
@@ -137,7 +138,6 @@ class CreateBookingSerializer(serializers.Serializer):
     pickup_point_id = serializers.CharField()
     drop_off_point_id = serializers.CharField()
     bus_id = serializers.IntegerField()
-    passenger_info = serializers.JSONField()  # Store passenger information as JSON
     luggage_info = serializers.JSONField(required=False)  # Store luggage information as JSON
     
     def validate(self, data):
@@ -178,7 +178,6 @@ class CreateBookingSerializer(serializers.Serializer):
         trip = validated_data.pop('trip')
         seats = validated_data.pop('seats')
         luggage_info = validated_data.pop('luggage_info', {})
-        passenger_info = validated_data.pop('passenger_info', {})
         
         # Get client from request
         user = self.context['request'].user
@@ -207,7 +206,6 @@ class CreateBookingSerializer(serializers.Serializer):
                 seat=seat,
                 pickup_point_id=validated_data['pickup_point_id'],
                 drop_point_id=validated_data['drop_off_point_id'],
-                passenger_information=json.dumps(passenger_info),
                 total_amount=total_amount,
                 status='confirmed'
             )

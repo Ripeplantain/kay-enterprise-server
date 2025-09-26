@@ -111,9 +111,9 @@ class AdminAuthViewSet(viewsets.GenericViewSet):
         
         # Get clients with booking counts and statistics
         queryset = Client.objects.annotate(
-            booking_count=Count('bookings', distinct=True),
-            total_bookings_amount=Sum('bookings__total_amount'),
-            last_booking_date=Max('bookings__booking_date')
+            booking_count=Count('booking', distinct=True),
+            total_bookings_amount=Sum('booking__total_amount'),
+            last_booking_date=Max('booking__created_at')
         ).select_related().order_by('-date_joined')
         
         # Apply filters
@@ -130,7 +130,7 @@ class AdminAuthViewSet(viewsets.GenericViewSet):
                 models.Q(other_names__icontains=search) |
                 models.Q(phone_number__icontains=search) |
                 models.Q(email__icontains=search) |
-                models.Q(city_town__icontains=search)
+                models.Q(area_suburb__icontains=search)
             )
         
         # Apply ordering
@@ -184,12 +184,12 @@ class AdminAuthViewSet(viewsets.GenericViewSet):
         
         # Booking statistics  
         total_bookings = Booking.objects.count()
-        confirmed_bookings = Booking.objects.filter(booking_status='confirmed').count()
-        pending_bookings = Booking.objects.filter(booking_status='pending').count()
-        cancelled_bookings = Booking.objects.filter(booking_status='cancelled').count()
+        confirmed_bookings = Booking.objects.filter(status='confirmed').count()
+        pending_bookings = Booking.objects.filter(status='pending').count()
+        cancelled_bookings = Booking.objects.filter(status='cancelled').count()
         
         # Additional useful stats
-        clients_with_bookings = Client.objects.filter(bookings__isnull=False).distinct().count()
+        clients_with_bookings = Client.objects.filter(booking__isnull=False).distinct().count()
         clients_without_bookings = total_clients - clients_with_bookings
         
         # Recent activity (last 30 days)
@@ -198,17 +198,17 @@ class AdminAuthViewSet(viewsets.GenericViewSet):
         thirty_days_ago = timezone.now() - timedelta(days=30)
         
         recent_clients = Client.objects.filter(date_joined__gte=thirty_days_ago).count()
-        recent_bookings = Booking.objects.filter(booking_date__gte=thirty_days_ago).count()
+        recent_bookings = Booking.objects.filter(created_at__gte=thirty_days_ago).count()
         
         # Revenue statistics
         from django.db.models import Sum
         total_revenue = Booking.objects.filter(
-            payment_status='paid'
+            status='confirmed'
         ).aggregate(total=Sum('total_amount'))['total'] or 0
         
         recent_revenue = Booking.objects.filter(
-            payment_status='paid',
-            booking_date__gte=thirty_days_ago
+            status='confirmed',
+            created_at__gte=thirty_days_ago
         ).aggregate(total=Sum('total_amount'))['total'] or 0
         
         stats_data = {
@@ -251,12 +251,12 @@ class AdminAuthViewSet(viewsets.GenericViewSet):
         try:
             # Get client with activity statistics
             client = Client.objects.annotate(
-                booking_count=Count('bookings', distinct=True),
-                total_bookings_amount=Sum('bookings__total_amount'),
-                total_paid_amount=Sum('bookings__total_amount', 
-                                    filter=models.Q(bookings__payment_status='paid')),
-                last_booking_date=Max('bookings__booking_date'),
-                first_booking_date=models.Min('bookings__booking_date')
+                booking_count=Count('booking', distinct=True),
+                total_bookings_amount=Sum('booking__total_amount'),
+                total_paid_amount=Sum('booking__total_amount',
+                                    filter=models.Q(booking__status='confirmed')),
+                last_booking_date=Max('booking__created_at'),
+                first_booking_date=models.Min('booking__created_at')
             ).select_related().get(id=pk)
             
             serializer = ClientDetailSerializer(client)
@@ -283,8 +283,7 @@ class ClientFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(method='filter_name')
     phone = django_filters.CharFilter(field_name='phone_number', lookup_expr='icontains')
     email = django_filters.CharFilter(field_name='email', lookup_expr='icontains')
-    region = django_filters.ChoiceFilter(field_name='region')
-    city = django_filters.CharFilter(field_name='city_town', lookup_expr='icontains')
+    area_suburb = django_filters.CharFilter(field_name='area_suburb', lookup_expr='icontains')
     is_active = django_filters.BooleanFilter()
     is_verified = django_filters.BooleanFilter()
     has_bookings = django_filters.BooleanFilter(method='filter_has_bookings')
@@ -306,9 +305,9 @@ class ClientFilter(django_filters.FilterSet):
     def filter_has_bookings(self, queryset, name, value):
         """Filter clients with or without bookings"""
         if value:
-            return queryset.filter(booking_count__gt=0)
+            return queryset.filter(booking__isnull=False).distinct()
         else:
-            return queryset.filter(booking_count=0)
+            return queryset.filter(booking__isnull=True)
 
 
 class ClientAuthViewSet(viewsets.GenericViewSet):

@@ -4,6 +4,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'routes', views.RouteViewSet, basename='routes')
+router.register(r'buses', views.BusViewSet, basename='buses')
 router.register(r'trips', views.TripViewSet, basename='trips')
 router.register(r'luggage-types', views.LuggageTypeViewSet, basename='luggage-types')
 router.register(r'bookings', views.BookingViewSet, basename='bookings')

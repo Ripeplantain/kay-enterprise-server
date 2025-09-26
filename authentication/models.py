@@ -3,7 +3,7 @@ from django.db import models
 from django.core.validators import RegexValidator
 import uuid
 
-from utils.contants import GENDER_CHOICES, GHANA_REGIONS
+from utils.contants import GENDER_CHOICES
 
 class Client(models.Model):
     """
@@ -36,8 +36,6 @@ class Client(models.Model):
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
 
     # Address Information (Ghana-specific)
-    region = models.CharField(max_length=20, choices=GHANA_REGIONS)
-    city_town = models.CharField(max_length=100)
     area_suburb = models.CharField(max_length=100, blank=True)
 
     # Emergency Contact

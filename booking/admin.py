@@ -11,9 +11,13 @@ class RouteAdmin(admin.ModelAdmin):
 
 @admin.register(Bus)
 class BusAdmin(admin.ModelAdmin):
-    list_display = ['plate_number', 'bus_type', 'total_seats', 'is_active']
+    list_display = ['plate_number', 'bus_type', 'get_total_seats', 'is_active']
     list_filter = ['bus_type', 'is_active']
     search_fields = ['plate_number']
+
+    def get_total_seats(self, obj):
+        return obj.total_seats
+    get_total_seats.short_description = 'Total Seats'
 
 
 @admin.register(Seat)

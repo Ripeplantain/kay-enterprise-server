@@ -39,7 +39,7 @@ class ClientRegistrationSerializer(serializers.ModelSerializer):
         fields = [
             'phone_number', 'email', 'password', 'password_confirm',
             'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender',
-            'region', 'city_town', 'area_suburb',
+            'area_suburb',
             'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship',
             'sms_notifications', 'email_notifications', 'whatsapp_notifications'
         ]
@@ -147,7 +147,7 @@ class ClientSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'phone_number', 'masked_phone', 'email', 'full_name',
             'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender',
-            'region', 'city_town', 'area_suburb',
+            'area_suburb',
             'is_verified', 'phone_verified_at',
             'date_joined'
         ]
@@ -173,14 +173,11 @@ class ClientListSerializer(serializers.ModelSerializer):
     booking_count = serializers.IntegerField(read_only=True)
     total_bookings_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     last_booking_date = serializers.DateTimeField(read_only=True)
-    region_display = serializers.SerializerMethodField()
-
     class Meta:
         model = Client
         fields = [
             'id', 'phone_number', 'masked_phone', 'email', 'full_name',
-            'first_name', 'last_name', 'gender', 'region', 'region_display',
-            'city_town', 'is_active', 'is_verified', 'date_joined', 'last_login',
+            'first_name', 'last_name', 'gender', 'is_active', 'is_verified', 'date_joined', 'last_login',
             'booking_count', 'total_bookings_amount', 'last_booking_date'
         ]
         read_only_fields = ('id', 'date_joined', 'last_login')
@@ -188,15 +185,11 @@ class ClientListSerializer(serializers.ModelSerializer):
     def get_masked_phone(self, obj):
         return obj.get_masked_phone()
     
-    def get_region_display(self, obj):
-        from utils.contants import GHANA_REGIONS
-        return dict(GHANA_REGIONS).get(obj.region, obj.region)
 
 class ClientDetailSerializer(serializers.ModelSerializer):
     """Detailed client serializer for admin with full activity information"""
     full_name = serializers.ReadOnlyField()
     masked_phone = serializers.SerializerMethodField()
-    region_display = serializers.SerializerMethodField()
     
     # Activity statistics
     booking_count = serializers.IntegerField(read_only=True)
@@ -218,7 +211,7 @@ class ClientDetailSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender',
             
             # Location
-            'region', 'region_display', 'city_town', 'area_suburb',
+            'area_suburb',
             
             # Emergency contact
             'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relationship',
@@ -245,9 +238,6 @@ class ClientDetailSerializer(serializers.ModelSerializer):
     def get_masked_phone(self, obj):
         return obj.get_masked_phone()
     
-    def get_region_display(self, obj):
-        from utils.contants import GHANA_REGIONS
-        return dict(GHANA_REGIONS).get(obj.region, obj.region)
     
     def get_recent_bookings(self, obj):
         """Get last 10 bookings with basic details"""

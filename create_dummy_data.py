@@ -37,14 +37,14 @@ def create_dummy_data():
     
     # Create Buses
     buses_data = [
-        {"plate_number": "GH-101-24", "bus_type": "luxury", "total_seats": 40},
-        {"plate_number": "GH-202-24", "bus_type": "standard", "total_seats": 50},
-        {"plate_number": "GH-303-24", "bus_type": "sleeper", "total_seats": 30},
-        {"plate_number": "GH-404-24", "bus_type": "luxury", "total_seats": 35},
-        {"plate_number": "GH-505-24", "bus_type": "standard", "total_seats": 45},
-        {"plate_number": "GH-606-24", "bus_type": "luxury", "total_seats": 38},
+        {"plate_number": "GH-101-24", "bus_type": "express"},
+        {"plate_number": "GH-202-24", "bus_type": "vip"},
+        {"plate_number": "GH-303-24", "bus_type": "express"},
+        {"plate_number": "GH-404-24", "bus_type": "vip"},
+        {"plate_number": "GH-505-24", "bus_type": "express"},
+        {"plate_number": "GH-606-24", "bus_type": "vip"},
     ]
-    
+
     buses = []
     for bus_data in buses_data:
         bus, created = Bus.objects.get_or_create(
@@ -53,23 +53,9 @@ def create_dummy_data():
         )
         buses.append(bus)
         if created:
-            print(f"Created bus: {bus.plate_number}")
-            
-            # Create seats for this bus
-            seat_types = ['window', 'aisle', 'middle']
-            for i in range(1, bus.total_seats + 1):
-                seat_type = seat_types[i % 3]
-                if i % 4 == 1 or i % 4 == 0:  # Window seats
-                    seat_type = 'window'
-                elif i % 4 == 2 or i % 4 == 3:  # Aisle seats
-                    seat_type = 'aisle'
-                
-                Seat.objects.get_or_create(
-                    bus=bus,
-                    seat_number=f"{i:02d}",
-                    defaults={"seat_type": seat_type}
-                )
-            print(f"Created {bus.total_seats} seats for bus {bus.plate_number}")
+            print(f"Created bus: {bus.plate_number} ({bus.bus_type}) with {bus.total_seats} seats")
+        else:
+            print(f"Bus already exists: {bus.plate_number} ({bus.bus_type}) with {bus.total_seats} seats")
     
     # Create Luggage Types
     luggage_types_data = [

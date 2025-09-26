@@ -19,6 +19,51 @@ class RouteViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [ClientOrAdminPermission]
 
 
+class BusViewSet(viewsets.ModelViewSet):
+    queryset = Bus.objects.all()
+    serializer_class = BusSerializer
+    permission_classes = [ClientOrAdminPermission]
+
+    def get_queryset(self):
+        queryset = Bus.objects.all()
+
+        # Filter by bus type
+        bus_type = self.request.query_params.get('bus_type')
+        if bus_type:
+            queryset = queryset.filter(bus_type=bus_type)
+
+        # Filter by active status
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+
+        return queryset.order_by('plate_number')
+
+    def perform_create(self, serializer):
+        # Check if user is admin for create operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can create buses")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        # Check if user is admin for update operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can update buses")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # Check if user is admin for delete operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can delete buses")
+        instance.delete()
+
+
 class TripViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TripListSerializer
     permission_classes = [ClientOrAdminPermission]

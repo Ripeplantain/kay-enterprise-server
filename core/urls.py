@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/auth/', include('authentication.urls')),
     path('api/booking/', include('booking.urls')),
     path('api/agents/', include('agents.urls')),
+    path('api/bus-quotes/', include('quotes.urls')),
 ]
 
 

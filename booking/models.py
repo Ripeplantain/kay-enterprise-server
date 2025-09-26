@@ -18,20 +18,57 @@ class Route(models.Model):
 
 class Bus(models.Model):
     BUS_TYPE_CHOICES = [
-        ('standard', 'Standard'),
-        ('luxury', 'Luxury'),
-        ('sleeper', 'Sleeper'),
+        ('express', 'Express'),
+        ('vip', 'VIP'),
     ]
-    
+
     plate_number = models.CharField(max_length=20, unique=True)
-    bus_type = models.CharField(max_length=20, choices=BUS_TYPE_CHOICES, default='standard')
-    total_seats = models.PositiveIntegerField()
+    bus_type = models.CharField(max_length=20, choices=BUS_TYPE_CHOICES, default='express')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.plate_number} ({self.bus_type})"
+
+    @property
+    def total_seats(self):
+        """Get total seats based on bus type"""
+        return 30 if self.bus_type == 'express' else 45
+
+    def create_seats(self):
+        """Create seats for this bus based on bus type"""
+        # Clear existing seats
+        self.seats.all().delete()
+
+        if self.bus_type == 'express':
+            # Express: 30 seats numbered 1-30
+            for seat_num in range(1, 31):
+                # Alternate between window and aisle seats
+                seat_type = 'window' if seat_num % 2 == 1 else 'aisle'
+                Seat.objects.create(
+                    bus=self,
+                    seat_number=str(seat_num),
+                    seat_type=seat_type
+                )
+        else:  # VIP
+            # VIP: 45 seats numbered 1-45
+            for seat_num in range(1, 46):
+                # Alternate between window and aisle seats
+                seat_type = 'window' if seat_num % 2 == 1 else 'aisle'
+                Seat.objects.create(
+                    bus=self,
+                    seat_number=str(seat_num),
+                    seat_type=seat_type
+                )
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        # Create seats if this is a new bus or if seats don't exist
+        if is_new or not self.seats.exists():
+            self.create_seats()
 
 
 class Seat(models.Model):
@@ -100,9 +137,8 @@ class Booking(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     trip = models.ForeignKey(Trip, on_delete=models.CASCADE)
     seat = models.ForeignKey(Seat, on_delete=models.CASCADE)
-    pickup_point_id = models.CharField(max_length=10, null=True, blank=True)  # Store pickup point ID
-    drop_point_id = models.CharField(max_length=10, null=True, blank=True)    # Store drop point ID
-    passenger_information = models.TextField(blank=True)  # JSON string for passenger info
+    pickup_point_id = models.CharField(max_length=10, null=True, blank=True)
+    drop_point_id = models.CharField(max_length=10, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=BOOKING_STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
