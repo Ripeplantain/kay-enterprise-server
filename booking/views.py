@@ -13,10 +13,53 @@ from .serializers import (
 )
 
 
-class RouteViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Route.objects.filter(is_active=True)
+class RouteViewSet(viewsets.ModelViewSet):
+    queryset = Route.objects.all()
     serializer_class = RouteSerializer
     permission_classes = [ClientOrAdminPermission]
+
+    def get_queryset(self):
+        queryset = Route.objects.all()
+
+        # Search by name, origin, or destination
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(origin__icontains=search) |
+                Q(destination__icontains=search)
+            )
+
+        # Filter by active status
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+
+        return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        # Check if user is admin for create operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can create routes")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        # Check if user is admin for update operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can update routes")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # Check if user is admin for delete operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can delete routes")
+        instance.delete()
 
 
 class BusViewSet(viewsets.ModelViewSet):
@@ -26,6 +69,14 @@ class BusViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Bus.objects.all()
+
+        # Search by plate number or bus type
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(plate_number__icontains=search) |
+                Q(bus_type__icontains=search)
+            )
 
         # Filter by bus type
         bus_type = self.request.query_params.get('bus_type')
@@ -37,7 +88,7 @@ class BusViewSet(viewsets.ModelViewSet):
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == 'true')
 
-        return queryset.order_by('plate_number')
+        return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
         # Check if user is admin for create operations
@@ -64,20 +115,20 @@ class BusViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
-class TripViewSet(viewsets.ReadOnlyModelViewSet):
+class TripViewSet(viewsets.ModelViewSet):
     serializer_class = TripListSerializer
     permission_classes = [ClientOrAdminPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['route', 'status']
-    
+
     def get_queryset(self):
-        queryset = Trip.objects.filter(status='scheduled').select_related('route', 'bus')
-        
+        queryset = Trip.objects.all().select_related('route', 'bus')
+
         # Filter by origin and destination
         origin = self.request.query_params.get('origin')
         destination = self.request.query_params.get('destination')
         departure_date = self.request.query_params.get('departure_date')
-        
+
         if origin:
             queryset = queryset.filter(route__origin__icontains=origin)
         if destination:
@@ -88,14 +139,38 @@ class TripViewSet(viewsets.ReadOnlyModelViewSet):
                 queryset = queryset.filter(departure_datetime__date=date)
             except ValueError:
                 pass
-        
-        return queryset.order_by('departure_datetime')
-    
+
+        return queryset.order_by('-created_at')
+
     def retrieve(self, request, *args, **kwargs):
         trip = self.get_object()
         serializer = TripSerializer(trip, context={'trip_id': trip.id})
         return Response(serializer.data)
-    
+
+    def perform_create(self, serializer):
+        # Check if user is admin for create operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can create trips")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        # Check if user is admin for update operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can update trips")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # Check if user is admin for delete operations
+        user = self.request.user
+        if not (hasattr(user, 'is_staff') and user.is_staff):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admin users can delete trips")
+        instance.delete()
+
     @action(detail=True, methods=['get'])
     def seats(self, request, pk=None):
         trip = self.get_object()
@@ -120,7 +195,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         if hasattr(user, 'is_staff') and user.is_staff:
             return Booking.objects.all().select_related(
                 'trip', 'trip__route', 'trip__bus', 'seat', 'client'
-            ).prefetch_related('luggage_items')
+            ).prefetch_related('luggage_items').order_by('-created_at')
         
         # If it's a client, show only their bookings
         if hasattr(user, 'phone_number'):  # This is a Client object
@@ -130,7 +205,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         return Booking.objects.filter(
             client=client
-        ).select_related('trip', 'trip__route', 'trip__bus', 'seat').prefetch_related('luggage_items')
+        ).select_related('trip', 'trip__route', 'trip__bus', 'seat').prefetch_related('luggage_items').order_by('-created_at')
     
     def create(self, request, *args, **kwargs):
         serializer = CreateBookingSerializer(data=request.data, context={'request': request})
